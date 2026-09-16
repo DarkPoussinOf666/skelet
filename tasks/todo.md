@@ -65,6 +65,7 @@
 - [x] Mettre en place l'automatisation CI/CD `.github/workflows/` (CI tests + Pages)
 - [x] Enrichir le `README.md` (badges, architecture, souveraineté locale, démo)
 - [x] Structurer les commits git (Conventional Commits) et basculer sur la branche `main`
+- [x] Pousser la branche initiale sur le dépôt distant (`git push -u origin main`)
 
 ## Section Review & Validation
 - **Moteur cinématique 3D non-destructif :** Chaîne vertébrale `spineChain` dynamique, préservation des poses initiales `restPosition` / `restQuaternion`, couplage rigide des 12 paires de côtes, cartilages et sternum.
