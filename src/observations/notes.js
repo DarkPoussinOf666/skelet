@@ -2,6 +2,7 @@
  * @file Gestionnaire du journal d'observations, validation de schéma stricte et persistance locale
  */
 import * as THREE from 'three';
+import { isSurfaceAnchor, resolveSurfaceAnchor } from './surface-anchor.js';
 
 export const STORAGE_KEY = 'skelet.observations.v1';
 
@@ -22,6 +23,7 @@ export function validateNote(n) {
   if (typeof n.boneId !== 'string' || !n.boneId.trim()) return false;
   if (typeof n.boneLabel !== 'string') return false;
   if (!Array.isArray(n.point) || n.point.length !== 3 || !n.point.every(Number.isFinite)) return false;
+  if (n.anchor != null && !isSurfaceAnchor(n.anchor)) return false;
   if (!ALLOWED_KINDS.includes(n.kind)) return false;
   if (typeof n.intensity !== 'number' || !Number.isInteger(n.intensity) || n.intensity < 0 || n.intensity > 10) return false;
   if (typeof n.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(n.date)) return false;
@@ -35,7 +37,7 @@ export function validateNote(n) {
  * @returns {object}
  */
 export function getEOSClinicalNote(t7Bone) {
-  const t7Pt = t7Bone ? t7Bone.position.toArray() : [-0.014, 1.284, -0.065];
+  const t7Pt = t7Bone ? t7Bone.position.toArray() : [0.014, 1.284, -0.065];
   const boneIdentifier = t7Bone ? (t7Bone.userData.anatomyId || t7Bone.name) : 'za-Vertebra_T7';
 
   return {
@@ -46,7 +48,7 @@ export function getEOSClinicalNote(t7Bone) {
     kind: 'Trouble diagnostiqué',
     intensity: 5,
     date: '2025-01-14',
-    text: 'Bilan EOS (14/01/2025) : Scoliose thoracique droite, angle de Cobb T6-T10 de 32° (22° à 32° selon les plateaux de repère T6-T7). Sommet / apex de courbure en T7-T8 avec rotation axiale des corps vertébraux (gibbosité costale droite). Cyphose thoracique T1-T12 : 45°. Lordose lombaire L1-S1 : 59°. Équilibre coronal préservé (C7-CSL : 3 mm, obliquité pelvienne : 3 mm).'
+    text: 'Bilan EOS (14/01/2025) : Scoliose thoracique à convexité gauche, angle de Cobb T6-T10 de 32° (22° à 32° selon les plateaux de repère T6-T7). Sommet / apex de courbure en T7-T8 avec rotation axiale des corps vertébraux (gibbosité costale gauche). Cyphose thoracique T1-T12 : 45°. Lordose lombaire L1-S1 : 59°. Équilibre coronal préservé (C7-CSL : 3 mm, obliquité pelvienne : 3 mm).'
   };
 }
 
@@ -188,16 +190,33 @@ export class NotesManager {
       const mat = n.kind === 'Trouble diagnostiqué' ? _diagnosticMat : _painMat;
       const marker = new THREE.Mesh(_sharedSphereGeo, mat);
 
-      const worldPt = new THREE.Vector3().fromArray(n.point);
+      const worldPt = (n.anchor && resolveSurfaceAnchor(bone, n.anchor)) || new THREE.Vector3().fromArray(n.point);
       const localPt = bone.worldToLocal(worldPt);
 
       marker.position.copy(localPt);
       marker.renderOrder = 10;
       marker.userData.bone = bone;
+      marker.userData.anchor = n.anchor;
       marker.visible = bone.visible;
 
       bone.add(marker);
       this.noteMarkers.push(marker);
+    }
+    this.updateMarkerPositions();
+  }
+
+  updateMarkerPositions() {
+    const point = new THREE.Vector3();
+    const scale = new THREE.Vector3();
+    for (const marker of this.noteMarkers) {
+      const bone = marker.userData.bone;
+      if (marker.userData.anchor && resolveSurfaceAnchor(bone, marker.userData.anchor, point)) {
+        marker.position.copy(bone.worldToLocal(point));
+      }
+      // GLB quantization scales must not shrink the marker itself.
+      bone.getWorldScale(scale);
+      marker.scale.set(1 / Math.abs(scale.x || 1), 1 / Math.abs(scale.y || 1), 1 / Math.abs(scale.z || 1));
+      marker.updateMatrixWorld(true);
     }
   }
 }
