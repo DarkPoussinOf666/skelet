@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SkeletApplicationState",
+  "type": "object",
+  "properties": {
+    "view": {
+      "type": "string",
+      "enum": ["front", "back", "side", "reset"],
+      "default": "front"
+    },
+    "region": {
+      "type": "string",
+      "enum": ["all", "head", "spine", "thorax", "arms", "pelvis", "legs"],
+      "default": "all"
+    },
+    "selectedStructureId": {
+      "type": ["string", "null"],
+      "default": null
+    },
+    "isolated": {
+      "type": "boolean",
+      "default": false
+    },
+    "layers": {
+      "type": "object",
+      "properties": {
+        "skeleton": {
+          "type": "object",
+          "properties": { "enabled": { "type": "boolean" }, "opacity": { "type": "number" } },
+          "required": ["enabled", "opacity"]
+        },
+        "muscles": {
+          "type": "object",
+          "properties": { "enabled": { "type": "boolean" }, "opacity": { "type": "number" } },
+          "required": ["enabled", "opacity"]
+        },
+        "nerves": {
+          "type": "object",
+          "properties": { "enabled": { "type": "boolean" }, "opacity": { "type": "number" } },
+          "required": ["enabled", "opacity"]
+        }
+      },
+      "required": ["skeleton", "muscles", "nerves"]
+    },
+    "pickLayer": {
+      "type": "string",
+      "enum": ["all", "skeleton", "muscles", "nerves"],
+      "default": "all"
+    },
+    "notesCount": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "required": ["view", "region", "isolated", "layers", "pickLayer"]
+}

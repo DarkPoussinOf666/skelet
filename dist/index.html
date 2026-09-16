@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:;">
+  <title>Skelet — Mon atlas anatomique</title>
+  <meta name="description" content="Explorer le squelette humain et cartographier ses observations et douleurs dans un espace personnel.">
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/layers.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three.module.js",
+      "three/addons/": "/vendor/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" aria-label="Skelet, accueil">
+      <img src="/favicon.svg" alt="">skelet<span>ATLAS PERSONNEL</span>
+    </a>
+    <div class="privacy"><i></i> Notes sur cet appareil</div>
+    <button id="export" class="quiet">Exporter mes notes ↗</button>
+  </header>
+  <main>
+    <aside class="anatomy">
+      <div class="eyebrow">EXPLORER</div>
+      <h1>Ton corps,<br>point par point.</h1>
+      <p class="intro">Un repère pour localiser et décrire ce que tu ressens.</p>
+      <label class="search">
+        <span>⌕</span>
+        <input id="search" type="search" placeholder="Rechercher une structure…" aria-label="Rechercher une structure">
+      </label>
+      <div class="section-label">RÉGIONS ANATOMIQUES</div>
+      <nav id="regions" aria-label="Régions anatomiques"></nav>
+      <div class="structures-head">
+        <span>Structures</span>
+        <span id="count">…</span>
+      </div>
+      <div id="bones" class="bones" aria-label="Structures sélectionnables"></div>
+      <details class="source">
+        <summary>À propos du modèle</summary>
+        <p>Atlas de référence Z-Anatomy. Couches osseuse, musculaire et nerveuse alignées. Export du modèle source sans réduction des triangles ; ce modèle générique ne reproduit pas ton anatomie individuelle et ne détermine pas la cause d’une douleur.</p>
+        <p>Le côté gauche ou droit désigne celui du corps représenté.</p>
+        <a href="/models/ATTRIBUTION.md" target="_blank" rel="noopener">Sources et crédits ↗</a>
+      </details>
+    </aside>
+
+    <section class="viewer" aria-label="Atlas anatomique 3D">
+      <div class="viewer-heading">
+        <span class="pill">SQUELETTE</span>
+        <span id="model-status" role="status">Chargement de l’atlas…</span>
+      </div>
+      <div id="canvas"></div>
+      <div class="orientation">
+        <span>D</span>
+        <span>G</span>
+      </div>
+      <div id="loading" class="loading">Chargement du modèle anatomique…</div>
+
+      <aside id="scoliosis-panel" class="scoliosis-panel" aria-label="Modélisation morphologique du rachis">
+        <div class="scoliosis-header">
+          <div class="scoliosis-title">
+            <span class="scoliosis-badge">EOS 2025</span>
+            <strong>Mon Profil Rachis</strong>
+          </div>
+          <button type="button" id="load-eos-note" class="load-eos-btn" title="Charger la fiche d'observation EOS 2025">+ Fiche EOS</button>
+          <button type="button" id="scoliosis-toggle-btn" class="scoliosis-toggle-btn" aria-pressed="true">Rachis EOS</button>
+        </div>
+        <div class="scoliosis-body">
+          <div class="scoliosis-metrics">
+            <div class="scoliosis-metric">
+              <span class="metric-label">Cobb T6-T10</span>
+              <strong id="scoliosis-cobb-val" class="metric-val">32°</strong>
+            </div>
+            <div class="scoliosis-metric">
+              <span class="metric-label">Apex</span>
+              <strong class="metric-val">T7-T8</strong>
+            </div>
+            <div class="scoliosis-metric">
+              <span class="metric-label">Cyphose T1-T12</span>
+              <strong class="metric-val">45°</strong>
+            </div>
+            <div class="scoliosis-metric">
+              <span class="metric-label">Axe C7-CSL</span>
+              <strong class="metric-val">3 mm</strong>
+            </div>
+          </div>
+          <div class="scoliosis-slider-wrap">
+            <div class="scoliosis-slider-labels">
+              <span>Courbure thoracique</span>
+              <output id="scoliosis-slider-val">32°</output>
+            </div>
+            <input id="scoliosis-slider" type="range" min="0" max="35" step="1" value="32" aria-label="Angle de courbure scoliotique">
+            <div class="scoliosis-slider-ticks">
+              <span>0° Neutre</span>
+              <span>22° T6-T7</span>
+              <span>32° Cobb</span>
+            </div>
+          </div>
+          <div class="scoliosis-presets">
+            <button type="button" class="preset-btn" data-angle="0">0° Neutre</button>
+            <button type="button" class="preset-btn" data-angle="22">22° T6-T7</button>
+            <button type="button" class="preset-btn active" data-angle="32">32° Bilan EOS</button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="viewer-bottom">
+        <div id="views" class="view-controls" aria-label="Orientation du modèle">
+          <button data-view="front" class="active">Face</button>
+          <button data-view="back">Dos</button>
+          <button data-view="side">Profil</button>
+          <button data-view="reset" aria-label="Recentrer tout le corps">↺</button>
+        </div>
+        <p>Glisser pour tourner · Molette pour zoomer · Clic sur une structure</p>
+      </div>
+
+      <div class="zoom">
+        <button id="zoom-in" aria-label="Zoom avant">+</button>
+        <button id="zoom-out" aria-label="Zoom arrière">−</button>
+      </div>
+    </section>
+
+    <aside class="observations">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">MON ESPACE</div>
+          <h2>Mes observations</h2>
+        </div>
+        <span id="note-count" class="badge">0</span>
+      </div>
+      <section class="selection">
+        <div class="selection-label"><i></i> STRUCTURE SÉLECTIONNÉE</div>
+        <h3 id="selected-name">Explore le modèle</h3>
+        <p id="selected-detail">Sélectionne une structure sur le corps ou dans la liste pour y associer une observation.</p>
+        <div class="selection-actions">
+          <button id="focus" disabled>⌖ Centrer</button>
+          <button id="isolate" disabled>Isoler</button>
+        </div>
+      </section>
+      <form id="note-form">
+        <h3>Ajouter un repère</h3>
+        <label>Type d’observation
+          <select id="note-kind">
+            <option>Douleur ressentie</option>
+            <option>Trouble diagnostiqué</option>
+            <option>Observation personnelle</option>
+          </select>
+        </label>
+        <label>Intensité de la douleur <output id="intensity-value">5 / 10</output>
+          <input id="intensity" type="range" min="0" max="10" value="5">
+          <span class="range-label"><span>Aucune</span><span>Maximale</span></span>
+        </label>
+        <label>Date
+          <input id="note-date" type="date" required>
+        </label>
+        <label>Ce que tu observes
+          <textarea id="note-text" rows="3" maxlength="2000" placeholder="Sensation, mouvement déclencheur, diagnostic connu…" required></textarea>
+        </label>
+        <button class="primary" id="save-note" disabled>＋ Enregistrer le repère</button>
+        <p id="save-status" class="save-status" role="status"></p>
+      </form>
+      <div class="journal-heading">
+        <h3>Mon journal</h3>
+        <span>Sur cet appareil</span>
+      </div>
+      <div id="notes">
+        <div class="empty">
+          <div>◎</div>
+          <strong>Ta première observation</strong>
+          <p>Sélectionne une structure et décris ce que tu ressens. Tes repères apparaîtront ici et sur le modèle.</p>
+        </div>
+      </div>
+      <p class="storage-note">Notes conservées dans ce navigateur, sans synchronisation. Exporte-les pour en garder une copie.</p>
+    </aside>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

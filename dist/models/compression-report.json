@@ -1,0 +1,44 @@
+[
+  {
+    "file": "skeleton",
+    "triangles": 512048,
+    "structures": 212,
+    "bytes": 3606848
+  },
+  {
+    "file": "head",
+    "triangles": 184127,
+    "structures": 59,
+    "bytes": 1300612
+  },
+  {
+    "file": "muscles-0",
+    "triangles": 682458,
+    "structures": 183,
+    "bytes": 4804544
+  },
+  {
+    "file": "muscles-1",
+    "triangles": 638615,
+    "structures": 205,
+    "bytes": 4768856
+  },
+  {
+    "file": "muscles-2",
+    "triangles": 543015,
+    "structures": 90,
+    "bytes": 4251552
+  },
+  {
+    "file": "muscles-3",
+    "triangles": 118882,
+    "structures": 4,
+    "bytes": 1332292
+  },
+  {
+    "file": "nerves",
+    "triangles": 1172626,
+    "structures": 251,
+    "bytes": 7367296
+  }
+]
