@@ -15,6 +15,7 @@ import { SelectionManager } from './selection/selection.js';
 import { PainZones, structureId } from './selection/pain-zones.js';
 import { NotesManager, getEOSClinicalNote } from './observations/notes.js';
 import { regionDefs, displayLabel } from './i18n/labels.js';
+import { saveCaptureToLocalStorage, downloadDataUrl } from './capture/capture.js';
 
 const $ = id => document.getElementById(id);
 
@@ -483,6 +484,89 @@ class SkeletApp {
 
     // Contrôles cinématique Scoliose
     this.scoliosis.setupUI(() => this.viewer.requestRender());
+
+    // Contrôles de capture du viewport 3D
+    this.setupCaptureUI();
+  }
+
+  setupCaptureUI() {
+    const captureBtn = $('capture-viewport-btn');
+    if (!captureBtn) return;
+
+    captureBtn.onclick = () => {
+      try {
+        // Capture du canvas avec fond dégradé signature
+        const dataUrl = this.viewer.captureImage({ compositeBackground: true });
+        if (!dataUrl) {
+          this.status('Impossible de capturer le viewport 3D.');
+          return;
+        }
+
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const filename = `skelet-vue-3d-${timestamp}.png`;
+
+        // Déclenche le téléchargement du fichier image
+        downloadDataUrl(dataUrl, filename);
+
+        // Sauvegarde dans le stockage local du navigateur
+        const activeViewBtn = document.querySelector('#views button.active');
+        const activeView = activeViewBtn ? (activeViewBtn.dataset.view || activeViewBtn.textContent) : 'libre';
+        const savedToStorage = saveCaptureToLocalStorage(dataUrl, {
+          filename,
+          view: activeView,
+          cobbAngle: this.scoliosis ? this.scoliosis.currentCobb : 0,
+          selectedStructure: this.selectionManager?.selected?.userData?.label || null
+        });
+
+        // Feedback visuel sobre et aérien
+        this.showCaptureFeedback(savedToStorage);
+      } catch (err) {
+        console.error('Erreur lors de la capture de la vue 3D:', err);
+        this.status('Erreur lors de la capture d’écran.');
+      }
+    };
+  }
+
+  showCaptureFeedback(savedLocally) {
+    const captureBtn = $('capture-viewport-btn');
+    const label = $('capture-btn-label');
+    const icon = $('capture-icon-svg');
+    const toast = $('capture-toast');
+    const toastText = $('capture-toast-text');
+
+    if (captureBtn) captureBtn.classList.add('captured');
+    if (label) label.textContent = 'Capturé !';
+    if (icon) {
+      icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+      icon.setAttribute('stroke', '#6ee7b7');
+    }
+
+    if (toast) {
+      toast.hidden = false;
+      if (toastText) {
+        toastText.textContent = savedLocally
+          ? 'Vue 3D capturée · Image téléchargée et stockée'
+          : 'Vue 3D capturée · Téléchargement lancé';
+      }
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      if (this.captureToastTimeout) clearTimeout(this.captureToastTimeout);
+      this.captureToastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          toast.hidden = true;
+        }, 250);
+
+        if (captureBtn) captureBtn.classList.remove('captured');
+        if (label) label.textContent = 'Capturer';
+        if (icon) {
+          icon.innerHTML = '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>';
+          icon.removeAttribute('stroke');
+        }
+      }, 2500);
+    }
   }
 
   initLayerControls() {

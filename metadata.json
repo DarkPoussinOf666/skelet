@@ -1,0 +1,6 @@
+{
+  "name": "Skelet",
+  "description": "Atlas anatomique 3D personnel et carnet d'observations local-first en WebGL / Three.js",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

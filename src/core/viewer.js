@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
+import { captureViewport } from '../capture/capture.js';
 
 export class Viewer {
   /**
@@ -132,6 +133,15 @@ export class Viewer {
     this.camera.position.sub(this.controls.target).multiplyScalar(factor).add(this.controls.target);
     this.controls.update();
     this.requestRender();
+  }
+
+  /**
+   * Capture l'état actuel du viewport 3D.
+   * @param {object} [options]
+   * @returns {string} Data URL au format PNG
+   */
+  captureImage(options) {
+    return captureViewport(this.renderer, this.scene, this.camera, options);
   }
 
   dispose() {

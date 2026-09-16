@@ -8,6 +8,7 @@
     "dev": "node server.mjs",
     "build": "vite build",
     "check": "node --check dist/app.js",
+    "lint": "node --check dist/app.js",
     "test": "vitest run"
   },
   "repository": {
