@@ -6,22 +6,22 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:;">
   <title>Skelet — Mon atlas anatomique</title>
   <meta name="description" content="Explorer le squelette humain et cartographier ses observations et douleurs dans un espace personnel.">
-  <link rel="icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/layers.css">
+  <link rel="icon" href="./favicon.svg">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./layers.css">
   <script type="importmap">
   {
     "imports": {
-      "three": "/vendor/three.module.js",
-      "three/addons/": "/vendor/"
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/"
     }
   }
   </script>
 </head>
 <body>
   <header>
-    <a class="brand" href="/" aria-label="Skelet, accueil">
-      <img src="/favicon.svg" alt="">skelet<span>ATLAS PERSONNEL</span>
+    <a class="brand" href="./" aria-label="Skelet, accueil">
+      <img src="./favicon.svg" alt="">skelet<span>ATLAS PERSONNEL</span>
     </a>
     <div class="privacy"><i></i> Notes sur cet appareil</div>
     <button id="export" class="quiet">Exporter mes notes ↗</button>
@@ -31,6 +31,14 @@
       <div class="eyebrow">EXPLORER</div>
       <h1>Ton corps,<br>point par point.</h1>
       <p class="intro">Un repère pour localiser et décrire ce que tu ressens.</p>
+      <section class="pain-panel" aria-label="Zones douloureuses">
+        <div class="pain-heading"><strong>Zones douloureuses</strong><span id="pain-count" role="status">0 zone</span></div>
+        <label class="pain-mode"><input id="pain-mode" type="checkbox" aria-describedby="pain-instructions"> Marquer les zones douloureuses</label>
+        <p id="pain-instructions">Active le marquage pour sélectionner plusieurs zones. Elles restent en rouge quand tu explores le modèle.</p>
+        <div id="pain-zones" class="pain-zones" aria-label="Zones marquées"></div>
+        <button id="clear-pain" type="button" disabled>Tout effacer</button>
+        <p id="pain-storage"></p>
+      </section>
       <label class="search">
         <span>⌕</span>
         <input id="search" type="search" placeholder="Rechercher une structure…" aria-label="Rechercher une structure">
@@ -82,8 +90,8 @@
               <strong class="metric-val">T7-T8</strong>
             </div>
             <div class="scoliosis-metric">
-              <span class="metric-label">Cyphose T1-T12</span>
-              <strong class="metric-val">45°</strong>
+              <span class="metric-label">Cible cyphose T1-T12</span>
+              <strong id="kyphosis-angle-val" class="metric-val">45°</strong>
             </div>
             <div class="scoliosis-metric">
               <span class="metric-label">Axe C7-CSL</span>
@@ -92,21 +100,32 @@
           </div>
           <div class="scoliosis-slider-wrap">
             <div class="scoliosis-slider-labels">
-              <span>Courbure thoracique</span>
+              <label for="scoliosis-slider">Scoliose · vue de face</label>
               <output id="scoliosis-slider-val">32°</output>
             </div>
             <input id="scoliosis-slider" type="range" min="0" max="35" step="1" value="32" aria-label="Angle de courbure scoliotique">
             <div class="scoliosis-slider-ticks">
-              <span>0° Neutre</span>
+              <span>0° Scoliose</span>
               <span>22° T6-T7</span>
               <span>32° Cobb</span>
             </div>
           </div>
-          <div class="scoliosis-presets">
-            <button type="button" class="preset-btn" data-angle="0">0° Neutre</button>
-            <button type="button" class="preset-btn" data-angle="22">22° T6-T7</button>
-            <button type="button" class="preset-btn active" data-angle="32">32° Bilan EOS</button>
+          <div class="scoliosis-slider-wrap">
+            <div class="scoliosis-slider-labels">
+              <label for="kyphosis-slider">Cyphose · vue de profil</label>
+              <output id="kyphosis-slider-val" for="kyphosis-slider">45°</output>
+            </div>
+            <input id="kyphosis-slider" type="range" min="0" max="70" step="1" value="45" aria-label="Cible de cyphose thoracique T1 à T12" aria-describedby="kyphosis-status">
+            <div class="scoliosis-slider-ticks"><span>0°</span><span>45° EOS</span><span>70°</span></div>
+            <label class="kyphosis-toggle"><input id="kyphosis-enabled" type="checkbox" checked> Appliquer la cyphose</label>
+            <p id="kyphosis-status" class="tissue-status" role="status">Cible EOS du 14/01/2025 : 45°. Forme de profil approximative.</p>
           </div>
+          <div class="scoliosis-presets">
+            <button type="button" class="preset-btn" data-angle="0">Atlas de référence</button>
+            <button type="button" class="preset-btn" data-angle="22">22° T6-T7</button>
+            <button type="button" class="preset-btn active" data-angle="32">EOS 32° / 45°</button>
+          </div>
+          <p id="tissue-status" class="tissue-status" role="status">Préparation de l’adaptation des muscles et des nerfs…</p>
         </div>
       </aside>
 
@@ -179,6 +198,6 @@
       <p class="storage-note">Notes conservées dans ce navigateur, sans synchronisation. Exporte-les pour en garder une copie.</p>
     </aside>
   </main>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

@@ -1,1 +1,40 @@
-{"name":"skelet","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"node server.mjs","check":"node --check dist/app.js","test":"vitest run"},"dependencies":{"three":"0.180.0"},"devDependencies":{"@gltf-transform/core":"^4.2.1","@gltf-transform/extensions":"^4.2.1","@gltf-transform/functions":"^4.2.1","meshoptimizer":"^0.24.0","vite":"^8.3.0","vitest":"^5.0.1"}}
+{
+  "name": "skelet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Atlas anatomique 3D personnel & carnet d'observations local-first en WebGL / Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "vite build",
+    "check": "node --check dist/app.js",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarkPoussinOf666/skelet.git"
+  },
+  "keywords": [
+    "anatomy",
+    "threejs",
+    "webgl",
+    "3d",
+    "scoliosis",
+    "biomechanics",
+    "local-first",
+    "privacy"
+  ],
+  "author": "DarkPoussinOf666",
+  "license": "MIT",
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/extensions": "^4.2.1",
+    "@gltf-transform/functions": "^4.2.1",
+    "meshoptimizer": "^0.24.0",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}

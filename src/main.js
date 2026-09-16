@@ -7,8 +7,12 @@ import { MeshoptDecoder } from 'three/addons/meshopt_decoder.module.js';
 
 import { Viewer } from './core/viewer.js';
 import { ScoliosisEngine } from './biometrics/scoliosis.js';
-import { createDefaultLayers, applyVisibility, syncLayerControls, layerOf, materialsOf } from './layers/layers.js';
+import { TissueDeformation } from './biometrics/tissue-deformation.js';
+import { resolveSurfaceAnchor } from './observations/surface-anchor.js';
+import { createDefaultLayers, applyVisibility, syncLayerControls, layerOf, materialsOf, isLayerEnabled, matchesPickLayer } from './layers/layers.js';
+import { classifyMuscleDepth, muscleDepthOf } from './layers/muscle-depth.js';
 import { SelectionManager } from './selection/selection.js';
+import { PainZones, structureId } from './selection/pain-zones.js';
 import { NotesManager, getEOSClinicalNote } from './observations/notes.js';
 import { regionDefs, displayLabel } from './i18n/labels.js';
 
@@ -20,11 +24,14 @@ class SkeletApp {
     this.pickLayer = 'all';
     this.bones = [];
     this.model = null;
+    this.painZones = new PainZones();
+    this.painMode = false;
 
     // Initialisation des gestionnaires
     this.layers = createDefaultLayers();
     this.viewer = new Viewer($('canvas'));
     this.scoliosis = new ScoliosisEngine();
+    this.tissues = new TissueDeformation();
     this.notesManager = new NotesManager();
 
     this.selectionManager = new SelectionManager({
@@ -32,8 +39,15 @@ class SkeletApp {
       renderer: this.viewer.renderer,
       getBones: () => this.bones,
       getPickLayer: () => this.pickLayer,
-      onSelect: (bone, point) => this.selectBone(bone, point)
+      onSelect: (bone, point, face) => this.pickBone(bone, point, face),
+      isPainZone: bone => this.painZones.has(bone)
     });
+    this.scoliosis.onPoseChange = () => {
+      this.tissues.update();
+      this.selectionManager.updatePoint();
+      this.notesManager.updateMarkerPositions();
+      this.viewer.requestRender();
+    };
 
     this.setupUI();
     this.loadAtlas();
@@ -59,12 +73,48 @@ class SkeletApp {
     this.viewer.requestRender();
   }
 
-  selectBone(bone, point) {
-    this.selectionManager.select(bone, point, this.layers);
+  selectBone(bone, point, face) {
+    this.selectionManager.select(bone, point, this.layers, face);
     this.updateVisibility();
     syncLayerControls(this.layers, this.bones, this.pickLayer);
     this.renderBones();
     this.viewer.requestRender();
+  }
+
+  pickBone(bone, point, face) {
+    if (this.painMode) this.painZones.toggle(bone);
+    this.selectBone(bone, point, face);
+    this.renderPainZones();
+  }
+
+  refreshPainZones() {
+    for (const bone of this.bones) this.selectionManager.updateHighlight(bone);
+    this.renderPainZones();
+    this.renderBones();
+    this.viewer.requestRender();
+  }
+
+  renderPainZones() {
+    const count = this.painZones.ids.size;
+    $('pain-count').textContent = `${count} zone${count === 1 ? '' : 's'}`;
+    $('clear-pain').disabled = count === 0;
+    $('pain-storage').textContent = this.painZones.storageAvailable
+      ? 'Zones conservées dans ce navigateur, séparément du journal.'
+      : 'Sauvegarde indisponible : les changements restent dans cette session uniquement.';
+    const bonesById = new Map(this.bones.map(bone => [structureId(bone), bone]));
+    $('pain-zones').replaceChildren(...[...this.painZones.ids].map(id => {
+      const bone = bonesById.get(id);
+      const label = bone?.userData.label || id;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `${label} ×`;
+      button.setAttribute('aria-label', `Retirer ${label} des zones douloureuses`);
+      button.onclick = () => {
+        this.painZones.remove(id);
+        this.refreshPainZones();
+      };
+      return button;
+    }));
   }
 
   renderRegions() {
@@ -98,8 +148,8 @@ class SkeletApp {
 
     const list = this.bones.filter(b => {
       const matchReg = this.region === 'all' || (b.userData.regions && b.userData.regions.includes(this.region)) || (this.region === 'head' && b.userData.region === 'head') || regionDefs.find(r => r[0] === this.region)?.[3](b.userData.sourceName || b.name);
-      const layerActive = this.layers[layerOf(b)]?.enabled;
-      const pickMatch = this.pickLayer === 'all' || layerOf(b) === this.pickLayer;
+      const layerActive = isLayerEnabled(b, this.layers);
+      const pickMatch = matchesPickLayer(b, this.pickLayer);
       const textMatch = (b.userData.label + ' ' + b.userData.sourceName).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query);
       return matchReg && layerActive && pickMatch && textMatch;
     });
@@ -119,9 +169,11 @@ class SkeletApp {
       ...list.map(b => {
         const button = document.createElement('button');
         button.textContent = b.userData.label;
-        button.className = (b === this.selectionManager.selected ? 'active ' : '') + 'structure-' + layerOf(b);
-        button.setAttribute('aria-pressed', String(b === this.selectionManager.selected));
-        button.onclick = () => this.selectBone(b);
+        const painful = this.painZones.has(b);
+        button.className = (b === this.selectionManager.selected ? 'active ' : '') + (painful ? 'painful ' : '') + 'structure-' + layerOf(b);
+        button.setAttribute('aria-pressed', String(this.painMode ? painful : b === this.selectionManager.selected));
+        if (painful) button.setAttribute('aria-label', `${b.userData.label} — zone douloureuse`);
+        button.onclick = () => this.pickBone(b);
         return button;
       })
     );
@@ -182,14 +234,17 @@ class SkeletApp {
           if (n.text && n.text.includes('Bilan EOS')) {
             this.scoliosis.isActive = true;
             this.scoliosis.currentCobb = 32;
-            this.scoliosis.apply(32, true);
+            this.scoliosis.isKyphosisActive = true;
+            this.scoliosis.apply(32, true, 45);
           }
 
           this.region = 'all';
           this.selectionManager.isolated = false;
           this.updateVisibility();
           this.renderRegions();
-          this.selectBone(b, new THREE.Vector3().fromArray(n.point));
+          this.selectBone(b, (n.anchor && resolveSurfaceAnchor(b, n.anchor)) || new THREE.Vector3().fromArray(n.point));
+          this.selectionManager.selectedAnchor = n.anchor || null;
+          this.selectionManager.selectedPoint.copy((n.anchor && resolveSurfaceAnchor(b, n.anchor)) || new THREE.Vector3().fromArray(n.point));
 
           if (n.text && n.text.includes('Bilan EOS')) {
             const tCenter = b.position.clone();
@@ -220,7 +275,9 @@ class SkeletApp {
         editBtn.onclick = () => {
           const b = this.bones.find(x => (x.userData.anatomyId || x.name) === n.boneId);
           if (!b) return;
-          this.selectBone(b, new THREE.Vector3().fromArray(n.point));
+          this.selectBone(b, (n.anchor && resolveSurfaceAnchor(b, n.anchor)) || new THREE.Vector3().fromArray(n.point));
+          this.selectionManager.selectedAnchor = n.anchor || null;
+          this.selectionManager.selectedPoint.copy((n.anchor && resolveSurfaceAnchor(b, n.anchor)) || new THREE.Vector3().fromArray(n.point));
           this.notesManager.editingId = n.id;
           $('note-kind').value = n.kind;
           $('note-kind').dispatchEvent(new Event('change'));
@@ -264,6 +321,18 @@ class SkeletApp {
   }
 
   setupUI() {
+    $('pain-mode').onchange = e => {
+      this.painMode = e.target.checked;
+      $('pain-instructions').textContent = this.painMode
+        ? 'Clique sur le modèle ou dans la liste pour ajouter ou retirer autant de zones que tu veux.'
+        : 'Active le marquage pour sélectionner plusieurs zones. Elles restent en rouge quand tu explores le modèle.';
+      this.renderBones();
+    };
+    $('clear-pain').onclick = () => {
+      this.painZones.clear();
+      this.refreshPainZones();
+    };
+    this.renderPainZones();
     this.renderRegions();
 
     const searchEl = $('search');
@@ -363,6 +432,9 @@ class SkeletApp {
           boneId: sel.userData.anatomyId || sel.name,
           boneLabel: sel.userData.label,
           point: pt.toArray(),
+          anchor: this.notesManager.editingId
+            ? this.notesManager.notes.find(n => n.id === this.notesManager.editingId)?.anchor
+            : this.selectionManager.selectedAnchor,
           kind: $('note-kind').value,
           intensity: Number($('intensity').value),
           date,
@@ -435,13 +507,33 @@ class SkeletApp {
             <input id="opacity-${id}" type="range" min="0" max="100" value="${Math.round(l.opacity * 100)}" aria-label="Opacité ${l.title}">
             <output id="opacity-value-${id}">${Math.round(l.opacity * 100)} %</output>
           </div>
+          ${id === 'muscles' && l.sublayers ? `
+            <div class="muscle-sublayers" id="muscle-sublayers">
+              ${Object.entries(l.sublayers).map(([subId, sub]) => `
+                <div class="sublayer-row ${subId}">
+                  <label>
+                    <input id="sublayer-muscles-${subId}" type="checkbox" checked>
+                    <span class="sublayer-dot"></span>${sub.title}
+                    <small id="sublayer-count-${subId}">…</small>
+                  </label>
+                  <div class="layer-opacity sublayer-opacity">
+                    <input id="sublayer-opacity-${subId}" type="range" min="0" max="100" value="${Math.round(sub.opacity * 100)}" aria-label="Opacité ${sub.title}">
+                    <output id="sublayer-opacity-val-${subId}">${Math.round(sub.opacity * 100)} %</output>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       `).join('')}
       <label class="pick-label">Sélectionner dans
         <select id="pick-layer">
           <option value="all">Toutes les couches visibles</option>
           <option value="skeleton">Squelette</option>
-          <option value="muscles">Muscles</option>
+          <option value="muscles">Muscles (tous)</option>
+          <option value="muscles_superficial">Muscles superficiels (surface)</option>
+          <option value="muscles_intermediate">Muscles intermédiaires</option>
+          <option value="muscles_deep">Muscles profonds</option>
           <option value="nerves">Nerfs</option>
         </select>
       </label>
@@ -453,6 +545,12 @@ class SkeletApp {
       $('layer-' + id).onchange = e => {
         l.enabled = e.target.checked;
         if (l.enabled && l.opacity === 0) l.opacity = 0.5;
+        if (id === 'muscles' && l.sublayers) {
+          const anySubEnabled = Object.values(l.sublayers).some(s => s.enabled);
+          if (l.enabled && !anySubEnabled) {
+            Object.values(l.sublayers).forEach(s => { s.enabled = true; });
+          }
+        }
         this.updateVisibility();
         this.renderBones();
         syncLayerControls(this.layers, this.bones, this.pickLayer);
@@ -460,9 +558,37 @@ class SkeletApp {
 
       $('opacity-' + id).oninput = e => {
         l.opacity = Number(e.target.value) / 100;
+        if (id === 'muscles' && l.sublayers) {
+          Object.values(l.sublayers).forEach(s => { s.opacity = l.opacity; });
+        }
         this.updateVisibility();
         syncLayerControls(this.layers, this.bones, this.pickLayer);
       };
+
+      if (id === 'muscles' && l.sublayers) {
+        for (const [subId, sub] of Object.entries(l.sublayers)) {
+          const subToggle = $('sublayer-muscles-' + subId);
+          if (subToggle) {
+            subToggle.onchange = e => {
+              sub.enabled = e.target.checked;
+              if (sub.enabled && !l.enabled) l.enabled = true;
+              if (sub.enabled && sub.opacity === 0) sub.opacity = l.opacity || 0.5;
+              this.updateVisibility();
+              this.renderBones();
+              syncLayerControls(this.layers, this.bones, this.pickLayer);
+            };
+          }
+
+          const subOpInput = $('sublayer-opacity-' + subId);
+          if (subOpInput) {
+            subOpInput.oninput = e => {
+              sub.opacity = Number(e.target.value) / 100;
+              this.updateVisibility();
+              syncLayerControls(this.layers, this.bones, this.pickLayer);
+            };
+          }
+        }
+      }
     }
 
     $('pick-layer').onchange = e => {
@@ -488,6 +614,12 @@ class SkeletApp {
         Object.values(this.layers).forEach((l, i) => {
           l.enabled = values[i] > 0;
           l.opacity = values[i];
+          if (l.sublayers) {
+            Object.values(l.sublayers).forEach(sub => {
+              sub.enabled = values[i] > 0;
+              sub.opacity = values[i];
+            });
+          }
         });
         this.pickLayer = pick;
         this.selectionManager.isolated = false;
@@ -505,6 +637,9 @@ class SkeletApp {
   }
 
   async loadAtlas() {
+    this.scoliosis.isBinding = true;
+    const poseControls = document.querySelectorAll('#scoliosis-slider, #kyphosis-slider, #kyphosis-enabled, #scoliosis-toggle-btn, .preset-btn');
+    poseControls.forEach(control => { control.disabled = true; });
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     this.model = new THREE.Group();
     this.viewer.scene.add(this.model);
@@ -523,7 +658,7 @@ class SkeletApp {
         $('model-status').textContent = `Chargement : ${this.layers[layer].title.toLowerCase()}…`;
 
         const sourceFiles = file === 'muscles'
-          ? await fetch('/models/muscles-files.json').then(r => {
+          ? await fetch('./models/muscles-files.json').then(r => {
               if (!r.ok) throw Error('Couche indisponible');
               return r.json();
             })
@@ -531,7 +666,7 @@ class SkeletApp {
 
         const gltf = { scene: new THREE.Group() };
         for (const sourceFile of sourceFiles) {
-          const part = await loader.loadAsync(`/models/${sourceFile}.glb`);
+          const part = await loader.loadAsync(`./models/${sourceFile}.glb`);
           gltf.scene.add(part.scene);
         }
 
@@ -540,6 +675,9 @@ class SkeletApp {
         gltf.scene.traverse(b => {
           if (!b.isMesh) return;
           b.userData.layer = layer;
+          if (layer === 'muscles') {
+            b.userData.muscleDepth = classifyMuscleDepth(b.userData.sourceName || b.name);
+          }
           b.userData.restPosition = b.position.clone();
           b.userData.restQuaternion = b.quaternion.clone();
 
@@ -557,6 +695,7 @@ class SkeletApp {
           b.userData.sourceName = b.userData.sourceName || b.name;
           b.userData.label = displayLabel(b.userData.sourceName);
           this.bones.push(b);
+          this.selectionManager.updateHighlight(b);
         });
 
         this.bones.sort((a, b) => a.userData.label.localeCompare(b.userData.label, 'fr', { numeric: true }));
@@ -565,6 +704,7 @@ class SkeletApp {
         this.updateVisibility();
         if (file === 'head') this.viewer.frameVisible(this.bones);
         this.renderBones();
+        this.renderPainZones();
         this.renderNotesList();
         syncLayerControls(this.layers, this.bones, this.pickLayer);
       } catch (err) {
@@ -573,8 +713,21 @@ class SkeletApp {
       }
     }
 
-    // Initialisation de l'index scoliotique O(1)
+    // All bindings must use the neutral atlas, before applying any pose.
     this.scoliosis.initIndex(this.bones);
+    $('model-status').textContent = 'Adaptation des muscles et des nerfs…';
+    try {
+      await this.tissues.init(this.model, this.bones, this.scoliosis);
+      const selected = this.selectionManager.selected;
+      if (this.tissues.replacements.has(selected)) this.selectionManager.selected = this.tissues.replacements.get(selected);
+      this.renderBones();
+      this.renderPainZones();
+    } catch (err) {
+      console.error('Adaptation des tissus indisponible:', err);
+      failures.push('adaptation des tissus');
+    }
+    this.scoliosis.isBinding = false;
+    poseControls.forEach(control => { control.disabled = false; });
     this.scoliosis.apply(this.scoliosis.currentCobb, this.scoliosis.isActive);
 
     // Synchronisation des marqueurs de notes
@@ -584,6 +737,9 @@ class SkeletApp {
     $('model-status').textContent = failures.length
       ? 'Couche indisponible : ' + [...new Set(failures)].join(', ') + ' · Recharger pour réessayer'
       : `${this.bones.length} structures · Atlas de référence`;
+    $('tissue-status').textContent = this.tissues.stats.meshes
+      ? `${this.tissues.stats.meshes} structures suivent le squelette · adaptation visuelle estimée, sans calcul de tension.`
+      : 'Adaptation des tissus indisponible pour les couches chargées.';
 
     this.viewer.requestRender();
 

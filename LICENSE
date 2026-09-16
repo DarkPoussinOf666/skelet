@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2025-2026 DarkPoussinOf666
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+### Anatomical 3D Models & Data Attribution (CC BY-SA 4.0)
+
+The anatomical 3D assets located in `dist/models/` are derived from the **Z-Anatomy** open-source atlas:
+- Source: Z-Anatomy (SkeletalSystem100.fbx, MuscularSystem100.fbx, NervousSystem100.fbx)
+  Author: Lluís Vinent Juanico, Gauthier Kervyn and Z-Anatomy contributors.
+  License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+  URL: https://github.com/LluisV/Z-Anatomy / https://www.z-anatomy.net/
+- Upstream anatomical databases:
+  - BodyParts3D (The Database Center for Life Science) — CC BY-SA 2.1 Japan / CC BY 4.0.
+  - "Cranial Nerves and Foramina" — University of Dundee, CAHID — CC BY 4.0.
+
+In compliance with the CC BY-SA 4.0 ShareAlike terms, all optimized and adapted 3D mesh files (`dist/models/*.glb`) and their catalog metadata are distributed under the **CC BY-SA 4.0** license.
+
+See `dist/models/ATTRIBUTION.md` and `dist/models/SOURCE-LICENSE.txt` for complete legal details, conversion provenance, and source checksums.
+
+### Third-Party Libraries
+
+- **Three.js** — Copyright © 2010-2025 Three.js Authors — MIT License (`dist/vendor/LICENSE`)
+- **meshoptimizer** — Copyright © 2016-2025 Arseny Kapoulkine — MIT License (`dist/vendor/MESHOPT-LICENSE.md`)
